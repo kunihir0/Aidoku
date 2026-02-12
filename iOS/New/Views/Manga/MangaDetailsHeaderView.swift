@@ -30,6 +30,7 @@ struct MangaDetailsHeaderView: View {
     @Binding var filters: [ChapterFilterOption]
     @Binding var langFilter: String?
     @Binding var scanlatorFilter: [String]
+    @Binding var collapsedDuplicates: Bool
 
     @Binding var descriptionExpanded: Bool
 
@@ -67,6 +68,7 @@ struct MangaDetailsHeaderView: View {
         filters: Binding<[ChapterFilterOption]>,
         langFilter: Binding<String?>,
         scanlatorFilter: Binding<[String]>,
+        collapsedDuplicates: Binding<Bool>,
         descriptionExpanded: Binding<Bool>,
         chapterTitleDisplayMode: Binding<ChapterTitleDisplayMode>,
         hasOtherDownloads: Bool,
@@ -88,6 +90,7 @@ struct MangaDetailsHeaderView: View {
         self._filters = filters
         self._langFilter = langFilter
         self._scanlatorFilter = scanlatorFilter
+        self._collapsedDuplicates = collapsedDuplicates
         self._descriptionExpanded = descriptionExpanded
         self._chapterTitleDisplayMode = chapterTitleDisplayMode
         self.hasOtherDownloads = hasOtherDownloads
@@ -212,6 +215,7 @@ struct MangaDetailsHeaderView: View {
                     filters: $filters,
                     langFilter: $langFilter,
                     scanlatorFilter: $scanlatorFilter,
+                    collapsedDuplicates: $collapsedDuplicates,
                     displayMode: $chapterTitleDisplayMode,
                     mangaUniqueKey: manga.uniqueKey
                 )
@@ -549,6 +553,7 @@ private struct MangaActionButtonStyle: ButtonStyle {
     @Previewable @State var filters: [ChapterFilterOption] = []
     @Previewable @State var langFilter: String?
     @Previewable @State var scanlatorFilter: [String] = []
+    @Previewable @State var collapsedDuplicates = false
     @Previewable @State var chapterTitleDisplayMode = ChapterTitleDisplayMode.default
 
     MangaDetailsHeaderView(
@@ -573,6 +578,7 @@ private struct MangaActionButtonStyle: ButtonStyle {
         filters: $filters,
         langFilter: $langFilter,
         scanlatorFilter: $scanlatorFilter,
+        collapsedDuplicates: $collapsedDuplicates,
         descriptionExpanded: Binding.constant(false),
         chapterTitleDisplayMode: $chapterTitleDisplayMode,
         hasOtherDownloads: false,

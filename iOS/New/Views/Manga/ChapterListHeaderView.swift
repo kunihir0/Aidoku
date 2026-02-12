@@ -17,6 +17,7 @@ struct ChapterListHeaderView: View {
     @Binding var filters: [ChapterFilterOption]
     @Binding var langFilter: String?
     @Binding var scanlatorFilter: [String]
+    @Binding var collapsedDuplicates: Bool
 
     @Binding var displayMode: ChapterTitleDisplayMode
 
@@ -33,6 +34,7 @@ struct ChapterListHeaderView: View {
         filters: Binding<[ChapterFilterOption]>,
         langFilter: Binding<String?>,
         scanlatorFilter: Binding<[String]>,
+        collapsedDuplicates: Binding<Bool>,
         displayMode: Binding<ChapterTitleDisplayMode>,
         mangaUniqueKey: String
     ) {
@@ -42,6 +44,7 @@ struct ChapterListHeaderView: View {
         self._filters = filters
         self._langFilter = langFilter
         self._scanlatorFilter = scanlatorFilter
+        self._collapsedDuplicates = collapsedDuplicates
         self._displayMode = displayMode
         self.mangaUniqueKey = mangaUniqueKey
 
@@ -197,6 +200,19 @@ struct ChapterListHeaderView: View {
                             if displayMode == mode {
                                 Image(systemName: "checkmark")
                             }
+                        }
+                    }
+                }
+            }
+            Section {
+                Button {
+                    collapsedDuplicates.toggle()
+                } label: {
+                    Label {
+                        Text(NSLocalizedString("COLLAPSE_DUPLICATE_CHAPTERS"))
+                    } icon: {
+                        if collapsedDuplicates {
+                            Image(systemName: "checkmark")
                         }
                     }
                 }

@@ -692,3 +692,6 @@
 "OPEN_CHAPTER_LIST" = "Open chapter list";
 "TOGGLE_BARS" = "Toggle bar visibility";
 "CLOSE_READER" = "Close reader";
+"COLLAPSE_DUPLICATE_CHAPTERS" = "Collapse Duplicate Chapters";
+"%i_VERSIONS" = "%i versions";
+"1_VERSION" = "1 version";

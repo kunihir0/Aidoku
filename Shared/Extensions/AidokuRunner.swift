@@ -313,7 +313,7 @@ extension AidokuRunner.Chapter {
         }
     }
 
-    func formattedSubtitle(page: Int?, sourceKey: String) -> String? {
+    func formattedSubtitle(page: Int?, sourceKey: String, duplicateCount: Int = 0) -> String? {
         var components: [String] = []
         // date
         if let dateUploaded {
@@ -334,6 +334,11 @@ extension AidokuRunner.Chapter {
             languageCount > 1
         {
             components.append(language)
+        }
+        // duplicate count
+        if duplicateCount > 0 {
+             let format = duplicateCount == 1 ? NSLocalizedString("1_VERSION") : NSLocalizedString("%i_VERSIONS")
+             components.append(String(format: format, duplicateCount))
         }
         return components.isEmpty ? nil : components.joined(separator: " • ")
     }

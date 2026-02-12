@@ -16,6 +16,7 @@ struct ChapterTableCell: View {
     let page: Int?
     let downloadStatus: DownloadStatus
     var downloadProgress: Float?
+    var duplicateCount: Int = 0
     let displayMode: ChapterTitleDisplayMode
 
     var downloaded: Bool {
@@ -47,7 +48,7 @@ struct ChapterTableCell: View {
                     .foregroundStyle(locked || read ? .secondary : .primary)
                     .font(.system(size: 16))
                     .lineLimit(1)
-                if let subtitle = chapter.formattedSubtitle(page: page, sourceKey: sourceKey) {
+                if let subtitle = chapter.formattedSubtitle(page: page, sourceKey: sourceKey, duplicateCount: duplicateCount) {
                     Text(subtitle)
                         .foregroundStyle(.secondary)
                         .font(.system(size: 14))

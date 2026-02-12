@@ -253,6 +253,7 @@ extension MangaView {
                 filters: $viewModel.chapterFilters,
                 langFilter: $viewModel.chapterLangFilter,
                 scanlatorFilter: $viewModel.chapterScanlatorFilter,
+                collapsedDuplicates: $viewModel.collapsedDuplicates,
                 descriptionExpanded: $descriptionExpanded,
                 chapterTitleDisplayMode: $viewModel.chapterTitleDisplayMode,
                 hasOtherDownloads: !viewModel.otherDownloadedChapters.isEmpty,
@@ -299,6 +300,7 @@ extension MangaView {
         } else {
             1
         }
+        let duplicateCount = viewModel.hiddenDuplicates[chapter.key]?.count ?? 0
 
         ChapterCellView(
             source: viewModel.source,
@@ -308,6 +310,7 @@ extension MangaView {
             page: viewModel.readingHistory[chapter.key]?.page,
             downloadStatus: downloadStatus,
             downloadProgress: viewModel.downloadProgress[chapter.key],
+            duplicateCount: duplicateCount,
             displayMode: viewModel.chapterTitleDisplayMode,
             isEditing: editMode == .active
         ) {
@@ -729,6 +732,7 @@ private struct ChapterCellView<T: View>: View, Equatable {
     let page: Int?
     let downloadStatus: DownloadStatus
     let downloadProgress: Float?
+    var duplicateCount: Int = 0
     let displayMode: ChapterTitleDisplayMode
     let isEditing: Bool
 
@@ -749,6 +753,7 @@ private struct ChapterCellView<T: View>: View, Equatable {
                 page: page,
                 downloadStatus: downloadStatus,
                 downloadProgress: downloadProgress,
+                duplicateCount: duplicateCount,
                 displayMode: displayMode
             )
         }
@@ -775,6 +780,7 @@ private struct ChapterCellView<T: View>: View, Equatable {
             && lhs.page == rhs.page
             && lhs.downloadStatus == rhs.downloadStatus
             && lhs.downloadProgress == rhs.downloadProgress
+            && lhs.duplicateCount == rhs.duplicateCount
             && lhs.displayMode == rhs.displayMode
             && lhs.isEditing == rhs.isEditing
     }

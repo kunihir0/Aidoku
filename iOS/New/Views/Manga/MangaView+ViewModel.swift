@@ -47,6 +47,14 @@ extension MangaView {
             didSet { refilterChapters() }
         }
 
+        @Published var collapsedDuplicates: Bool = false {
+            didSet {
+                UserDefaults.standard.set(collapsedDuplicates, forKey: "Manga.collapsedDuplicates.\(manga.uniqueKey)")
+                refilterChapters()
+            }
+        }
+        @Published var hiddenDuplicates: [String: [AidokuRunner.Chapter]] = [:]
+
         @Published var chapterTitleDisplayMode: ChapterTitleDisplayMode
 
         @Published var error: Error?
@@ -61,6 +69,7 @@ extension MangaView {
 
             let key = "Manga.chapterDisplayMode.\(manga.uniqueKey)"
             self.chapterTitleDisplayMode = .init(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .default
+            self.collapsedDuplicates = UserDefaults.standard.bool(forKey: "Manga.collapsedDuplicates.\(manga.uniqueKey)")
 
             setupNotifications()
         }
@@ -175,6 +184,15 @@ extension MangaView {
                     else {
                         return
                     }
+                    
+                    if let scanlatorString = item.chapter.scanlator {
+                        let scanlators = scanlatorString.components(separatedBy: ", ")
+                        if let first = scanlators.first {
+                            UserDefaults.standard.set(first, forKey: "Manga.preferredScanlator.\(self.manga.uniqueKey)")
+                            self.refilterChapters()
+                        }
+                    }
+                    
                     self.readingHistory[item.chapter.id] = (
                         page: item.page,
                         date: Int(Date().timeIntervalSince1970)
@@ -704,7 +722,57 @@ extension MangaView.ViewModel {
             }
         }
 
-        return chapters
+        if collapsedDuplicates {
+            var groupedChapters: [AidokuRunner.Chapter] = []
+            var seenLogicalIds: [String: Int] = [:] // LogicalID -> Index in groupedChapters
+            var newHiddenDuplicates: [String: [AidokuRunner.Chapter]] = [:]
+            
+            let preferredScanlator = UserDefaults.standard.string(forKey: "Manga.preferredScanlator.\(manga.uniqueKey)")
+            
+            for chapter in chapters {
+                let logicalId = "\(chapter.volumeNumber ?? -1)-\(chapter.chapterNumber ?? -1)-\(chapter.title ?? "")"
+                
+                if let existingIndex = seenLogicalIds[logicalId] {
+                    // Duplicate found
+                    let existing = groupedChapters[existingIndex]
+                    
+                    // Decide which one to keep as the "Visible" one
+                    var keepExisting = true
+                    
+                    if let preferred = preferredScanlator {
+                        let existingMatches = (existing.scanlators ?? []).contains(preferred)
+                        let newMatches = (chapter.scanlators ?? []).contains(preferred)
+                        
+                        if !existingMatches && newMatches {
+                            keepExisting = false
+                        }
+                    }
+                    
+                    if keepExisting {
+                         newHiddenDuplicates[existing.key, default: []].append(chapter)
+                    } else {
+                        // Replace 'existing' with 'chapter'
+                        groupedChapters[existingIndex] = chapter
+                        
+                        // Move hidden dups from existing to new chapter
+                        if let existingHidden = newHiddenDuplicates[existing.key] {
+                            newHiddenDuplicates[chapter.key] = existingHidden
+                            newHiddenDuplicates[existing.key] = nil
+                        }
+                        newHiddenDuplicates[chapter.key, default: []].append(existing)
+                    }
+                } else {
+                    // New logical chapter
+                    seenLogicalIds[logicalId] = groupedChapters.count
+                    groupedChapters.append(chapter)
+                }
+            }
+            hiddenDuplicates = newHiddenDuplicates
+            return groupedChapters
+        } else {
+            hiddenDuplicates = [:]
+            return chapters
+        }
     }
 
     enum ChapterResult: Equatable {
