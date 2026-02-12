@@ -730,7 +730,22 @@ extension MangaView.ViewModel {
             let preferredScanlator = UserDefaults.standard.string(forKey: "Manga.preferredScanlator.\(manga.uniqueKey)")
             
             for chapter in chapters {
-                let logicalId = "\(chapter.volumeNumber ?? -1)-\(chapter.chapterNumber ?? -1)-\(chapter.title ?? "")"
+                var logicalId = ""
+                if let chapterNum = chapter.chapterNumber {
+                    logicalId += "ch:\(chapterNum)"
+                } else {
+                    logicalId += "ch:nil"
+                }
+                if let volNum = chapter.volumeNumber {
+                    logicalId += "|vol:\(volNum)"
+                } else {
+                    logicalId += "|vol:nil"
+                }
+                
+                // Only use title if BOTH numbers are missing (e.g. oneshots)
+                if chapter.chapterNumber == nil && chapter.volumeNumber == nil {
+                    logicalId += "|title:\(chapter.title ?? "")"
+                }
                 
                 if let existingIndex = seenLogicalIds[logicalId] {
                     // Duplicate found
