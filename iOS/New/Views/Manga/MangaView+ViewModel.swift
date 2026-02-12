@@ -730,41 +730,39 @@ extension MangaView.ViewModel {
             let preferredScanlator = UserDefaults.standard.string(forKey: "Manga.preferredScanlator.\(manga.uniqueKey)")
             
             for chapter in chapters {
-                var logicalId = ""
-                if let chapterNum = chapter.chapterNumber {
-                    logicalId = "ch:\(chapterNum)"
-                } else {
-                    logicalId = "title:\(chapter.title ?? "")"
-                }
+                let logicalId: String = {
+                    if let chapterNum = chapter.chapterNumber {
+                        return "ch:\(chapterNum)"
+                    } else {
+                        return "title:\(chapter.title ?? "")"
+                    }
+                }()
                 
                 if let existingIndex = seenLogicalIds[logicalId] {
                     // Duplicate found
                     let existing = groupedChapters[existingIndex]
                     
-                    // Decide which one to keep as the "Visible" one
-                    var keepExisting = true
-                    
-                    if let preferred = preferredScanlator {
-                        let existingMatches = (existing.scanlators ?? []).contains(preferred)
-                        let newMatches = (chapter.scanlators ?? []).contains(preferred)
-                        
-                        if !existingMatches && newMatches {
-                            keepExisting = false
-                        }
+                    // Check if new chapter is a better match for preference
+                    let useNew = if let preferred = preferredScanlator {
+                        !(existing.scanlators ?? []).contains(preferred) &&
+                        (chapter.scanlators ?? []).contains(preferred)
+                    } else {
+                        false
                     }
                     
-                    if keepExisting {
-                         newHiddenDuplicates[existing.key, default: []].append(chapter)
-                    } else {
+                    if useNew {
                         // Replace 'existing' with 'chapter'
                         groupedChapters[existingIndex] = chapter
                         
-                        // Move hidden dups from existing to new chapter
+                        // Transfer hidden duplicates from old leader to new leader
                         if let existingHidden = newHiddenDuplicates[existing.key] {
                             newHiddenDuplicates[chapter.key] = existingHidden
                             newHiddenDuplicates[existing.key] = nil
                         }
                         newHiddenDuplicates[chapter.key, default: []].append(existing)
+                    } else {
+                        // Keep 'existing', add 'chapter' to hidden
+                        newHiddenDuplicates[existing.key, default: []].append(chapter)
                     }
                 } else {
                     // New logical chapter
