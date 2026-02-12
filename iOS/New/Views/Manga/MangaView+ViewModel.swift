@@ -732,19 +732,9 @@ extension MangaView.ViewModel {
             for chapter in chapters {
                 var logicalId = ""
                 if let chapterNum = chapter.chapterNumber {
-                    logicalId += "ch:\(chapterNum)"
+                    logicalId = "ch:\(chapterNum)"
                 } else {
-                    logicalId += "ch:nil"
-                }
-                if let volNum = chapter.volumeNumber {
-                    logicalId += "|vol:\(volNum)"
-                } else {
-                    logicalId += "|vol:nil"
-                }
-                
-                // Only use title if BOTH numbers are missing (e.g. oneshots)
-                if chapter.chapterNumber == nil && chapter.volumeNumber == nil {
-                    logicalId += "|title:\(chapter.title ?? "")"
+                    logicalId = "title:\(chapter.title ?? "")"
                 }
                 
                 if let existingIndex = seenLogicalIds[logicalId] {
