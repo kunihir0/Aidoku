@@ -865,4 +865,11 @@ extension MangaView.ViewModel {
         manga.scanlatorFilter = chapterScanlatorFilter
         await CoreDataManager.shared.updateMangaDetails(manga: manga)
     }
+
+    func selectVersion(_ chapter: AidokuRunner.Chapter) {
+        if let scanlator = chapter.scanlators?.first {
+            UserDefaults.standard.set(scanlator, forKey: "Manga.preferredScanlator.\(manga.uniqueKey)")
+            refilterChapters()
+        }
+    }
 }

@@ -300,7 +300,7 @@ extension MangaView {
         } else {
             1
         }
-        let duplicateCount = viewModel.hiddenDuplicates[chapter.key]?.count ?? 0
+        let duplicates = viewModel.hiddenDuplicates[chapter.key] ?? []
 
         ChapterCellView(
             source: viewModel.source,
@@ -310,9 +310,12 @@ extension MangaView {
             page: viewModel.readingHistory[chapter.key]?.page,
             downloadStatus: downloadStatus,
             downloadProgress: viewModel.downloadProgress[chapter.key],
-            duplicateCount: duplicateCount,
+            duplicates: duplicates,
             displayMode: viewModel.chapterTitleDisplayMode,
-            isEditing: editMode == .active
+            isEditing: editMode == .active,
+            onVersionSelect: { version in
+                viewModel.selectVersion(version)
+            }
         ) {
             if editMode == .inactive {
                 openChapter = chapter
@@ -732,9 +735,10 @@ private struct ChapterCellView<T: View>: View, Equatable {
     let page: Int?
     let downloadStatus: DownloadStatus
     let downloadProgress: Float?
-    var duplicateCount: Int = 0
+    let duplicates: [AidokuRunner.Chapter]
     let displayMode: ChapterTitleDisplayMode
     let isEditing: Bool
+    var onVersionSelect: ((AidokuRunner.Chapter) -> Void)?
 
     var onPressed: (() -> Void)?
     var contextMenu: (() -> T)?
@@ -753,9 +757,34 @@ private struct ChapterCellView<T: View>: View, Equatable {
                 page: page,
                 downloadStatus: downloadStatus,
                 downloadProgress: downloadProgress,
-                duplicateCount: duplicateCount,
+                duplicateCount: duplicates.count,
                 displayMode: displayMode
             )
+            if !duplicates.isEmpty {
+                Menu {
+                    Button {
+                        onVersionSelect?(chapter)
+                    } label: {
+                        Label {
+                            Text(chapter.scanlators?.joined(separator: ", ") ?? NSLocalizedString("NO_SCANLATOR"))
+                        } icon: {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                    ForEach(duplicates, id: \.key) { dup in
+                        Button {
+                            onVersionSelect?(dup)
+                        } label: {
+                            Text(dup.scanlators?.joined(separator: ", ") ?? NSLocalizedString("NO_SCANLATOR"))
+                        }
+                    }
+                } label: {
+                    Image(systemName: "chevron.down.circle")
+                        .imageScale(.large)
+                        .padding(.leading, 8)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+            }
         }
         if isEditing {
             view
@@ -780,7 +809,7 @@ private struct ChapterCellView<T: View>: View, Equatable {
             && lhs.page == rhs.page
             && lhs.downloadStatus == rhs.downloadStatus
             && lhs.downloadProgress == rhs.downloadProgress
-            && lhs.duplicateCount == rhs.duplicateCount
+            && lhs.duplicates == rhs.duplicates
             && lhs.displayMode == rhs.displayMode
             && lhs.isEditing == rhs.isEditing
     }
