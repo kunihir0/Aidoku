@@ -17,6 +17,7 @@
 		04B48CFF2CD6B3B000F719D0 /* ShikimoriQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B48CFD2CD6B3AD00F719D0 /* ShikimoriQueries.swift */; };
 		0C807DDD27D47C2D0042EE7B /* CircularProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C807DDC27D47C2D0042EE7B /* CircularProgressView.swift */; };
 		37F3E66D2850F62100A944E0 /* Collection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37F3E66C2850F62100A944E0 /* Collection.swift */; };
+		3A39AFDC2F4D4F9B005545B2 /* ReaderWebtoonViewController+Delegates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A39AFDB2F4D4F9B005545B2 /* ReaderWebtoonViewController+Delegates.swift */; };
 		3AA6148F2F4409AB0009F7AB /* ReaderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA6148E2F4409AB0009F7AB /* ReaderViewModel.swift */; };
 		3AA614912F440ADD0009F7AB /* LibraryViewController+CollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614902F440ADD0009F7AB /* LibraryViewController+CollectionView.swift */; };
 		3AA614942F440B960009F7AB /* LibraryViewController+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614932F440B960009F7AB /* LibraryViewController+Filter.swift */; };
@@ -591,6 +592,7 @@
 		04B48CFD2CD6B3AD00F719D0 /* ShikimoriQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShikimoriQueries.swift; sourceTree = "<group>"; };
 		0C807DDC27D47C2D0042EE7B /* CircularProgressView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CircularProgressView.swift; sourceTree = "<group>"; };
 		37F3E66C2850F62100A944E0 /* Collection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Collection.swift; sourceTree = "<group>"; };
+		3A39AFDB2F4D4F9B005545B2 /* ReaderWebtoonViewController+Delegates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReaderWebtoonViewController+Delegates.swift"; sourceTree = "<group>"; };
 		3AA6148E2F4409AB0009F7AB /* ReaderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewModel.swift; sourceTree = "<group>"; };
 		3AA614902F440ADD0009F7AB /* LibraryViewController+CollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibraryViewController+CollectionView.swift"; sourceTree = "<group>"; };
 		3AA614922F440B960009F7AB /* LibraryViewController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibraryViewController+Actions.swift"; sourceTree = "<group>"; };
@@ -1484,6 +1486,7 @@
 		FB1B51AF28E35B1100D3CE0E /* Webtoon */ = {
 			isa = PBXGroup;
 			children = (
+				3A39AFDB2F4D4F9B005545B2 /* ReaderWebtoonViewController+Delegates.swift */,
 				FB1B51B028E35B2900D3CE0E /* ReaderWebtoonViewController.swift */,
 				FB1B51B228E35B4700D3CE0E /* ReaderWebtoonViewModel.swift */,
 				FB4C09D629B01AD2009E0761 /* ReaderWebtoonPageNode.swift */,
@@ -2571,6 +2574,7 @@
 				FB2BE5E129522EE700FAD8A7 /* ReaderChapterListView.swift in Sources */,
 				FB077DAA2E7DC77300C9C214 /* SettingsAboutView.swift in Sources */,
 				FB1B51B528E35BEA00D3CE0E /* BaseCollectionViewController.swift in Sources */,
+				3A39AFDC2F4D4F9B005545B2 /* ReaderWebtoonViewController+Delegates.swift in Sources */,
 				FB7C28932E898DD9009FF6AF /* BackupCreateView.swift in Sources */,
 				FBCA1B2D2889AEE0007149C5 /* BackupTrackItem.swift in Sources */,
 				FB7F06002DDF79420036B116 /* KomgaSource.swift in Sources */,
