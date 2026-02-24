@@ -9,6 +9,7 @@ import UIKit
 import SafariServices
 import SwiftUI
 import AidokuRunner
+import Combine
 
 class ReaderViewController: BaseObservingViewController {
     enum Reader {
@@ -17,33 +18,13 @@ class ReaderViewController: BaseObservingViewController {
         case text
     }
 
-    let source: AidokuRunner.Source?
-    let manga: AidokuRunner.Manga
-    var chapter: AidokuRunner.Chapter
-    var pages: [Page] = []
-    var readingMode: ReadingMode = .rtl
-    var defaultReadingMode: ReadingMode?
-    private var tapZone: TapZone?
+    let viewModel: ReaderViewModel
 
-    private var chapterList: [AidokuRunner.Chapter]
-    private var chaptersToMark: [AidokuRunner.Chapter] = []
-    private var chaptersToRemoveDownload: [AidokuRunner.Chapter] = [] {
-        didSet {
-            // ensure chapters queued for deletion are persistent, in case of app termination
-            if chaptersToRemoveDownload.isEmpty {
-                UserDefaults.standard.removeObject(forKey: "chaptersToBeDeleted")
-            } else {
-                let data = try? JSONEncoder().encode(chaptersToRemoveDownload.map {
-                    ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: $0.key)
-                })
-                UserDefaults.standard.set(data, forKey: "chaptersToBeDeleted")
-            }
-        }
-    }
-    private var currentPage = 1
-    private var sessionReadPages: Set<Int> = []
-    private var sessionStartDate: Date?
-    private var sessionLastInteraction: Date?
+    var pages: [Page] = []
+
+    // UI-specific state that mirrors VM or is derived
+    var readingMode: ReadingMode = .rtl
+    private var tapZone: TapZone?
 
     weak var reader: ReaderReaderDelegate?
 
@@ -52,7 +33,7 @@ class ReaderViewController: BaseObservingViewController {
     private var toolbarViewWidthConstraint: NSLayoutConstraint?
 
     private lazy var descriptionButtonController: UIHostingController<ReaderPageDescriptionButtonView> = {
-        let buttonView = ReaderPageDescriptionButtonView(source: source, pages: [])
+        let buttonView = ReaderPageDescriptionButtonView(source: viewModel.source, pages: [])
         let hostingController = UIHostingController(rootView: buttonView)
         hostingController.view.backgroundColor = .clear
         hostingController.view.alpha = 0
@@ -101,18 +82,7 @@ class ReaderViewController: BaseObservingViewController {
         manga: AidokuRunner.Manga,
         chapter: AidokuRunner.Chapter
     ) {
-        self.source = source
-        self.manga = manga
-        self.chapter = chapter
-        self.chapterList = manga.chapters ?? []
-        self.chaptersToMark = [chapter]
-        self.defaultReadingMode = switch manga.viewer {
-            case .rightToLeft: .rtl
-            case .leftToRight: .ltr
-            case .vertical: .vertical
-            case .webtoon: .webtoon
-            case .unknown: .none
-        }
+        self.viewModel = ReaderViewModel(source: source, manga: manga, chapter: chapter)
         super.init()
     }
 
@@ -140,7 +110,7 @@ class ReaderViewController: BaseObservingViewController {
             target: self,
             action: #selector(openWebView)
         )
-        moreButton.isEnabled = chapter.url != nil
+        moreButton.isEnabled = viewModel.chapter.url != nil
         navigationItem.rightBarButtonItems = [
             moreButton,
             UIBarButtonItem(
@@ -200,7 +170,7 @@ class ReaderViewController: BaseObservingViewController {
         view.addGestureRecognizer(barToggleTapGesture)
 
         // set reader
-        let readingModeKey = "Reader.readingMode.\(manga.key)"
+        let readingModeKey = "Reader.readingMode.\(viewModel.manga.key)"
         UserDefaults.standard.register(defaults: [readingModeKey: "default"])
         setReadingMode(UserDefaults.standard.string(forKey: readingModeKey))
 
@@ -209,6 +179,32 @@ class ReaderViewController: BaseObservingViewController {
 
         // load chapter list
         loadCurrentChapter()
+
+        bindViewModel()
+    }
+
+    func bindViewModel() {
+        viewModel.$readingMode
+            .receive(on: RunLoop.main)
+            .sink { [weak self] (mode: ReadingMode) in
+                self?.readingMode = mode
+                // Note: setReader is called in setReadingMode which updates VM.
+                // But if VM updates mode, we need to update UI if strictly following MVVM.
+                // For now, setReadingMode in VC drives both.
+            }
+            .store(in: &cancellables)
+
+        viewModel.$chapter
+            .receive(on: RunLoop.main)
+            .sink { [weak self] (chapter: AidokuRunner.Chapter) in
+                 // Update navbar title when chapter changes
+                 self?.loadNavbarTitle()
+                 // Update webview button
+                 if let moreButton = self?.navigationItem.rightBarButtonItems?.first {
+                     moreButton.isEnabled = chapter.url != nil
+                 }
+            }
+            .store(in: &cancellables)
     }
 
     override func constrain() {
@@ -224,16 +220,16 @@ class ReaderViewController: BaseObservingViewController {
     }
 
     override func observe() {
-        addObserver(forName: "Reader.readingMode.\(manga.key)") { [weak self] _ in
+        addObserver(forName: "Reader.readingMode.\(viewModel.manga.key)") { [weak self] _ in
             guard let self else { return }
-            self.setReadingMode(UserDefaults.standard.string(forKey: "Reader.readingMode.\(self.manga.key)"))
-            self.reader?.setChapter(self.chapter, startPage: self.currentPage)
+            self.setReadingMode(UserDefaults.standard.string(forKey: "Reader.readingMode.\(self.viewModel.manga.key)"))
+            self.reader?.setChapter(self.viewModel.chapter, startPage: self.viewModel.currentPage)
             // if the tap zone is auto, it will changed based on the current reader
             self.updateTapZone()
         }
         let reloadBlock: (Notification) -> Void = { [weak self] _ in
             guard let self else { return }
-            self.reader?.setChapter(self.chapter, startPage: self.currentPage)
+            self.reader?.setChapter(self.viewModel.chapter, startPage: self.viewModel.currentPage)
         }
         // reload pages when processors change
         addObserver(forName: "Reader.downsampleImages", using: reloadBlock)
@@ -253,11 +249,7 @@ class ReaderViewController: BaseObservingViewController {
         }
         addObserver(forName: UIScene.didActivateNotification) { [weak self] _ in
             guard let self else { return }
-            if self.sessionStartDate == nil {
-                self.sessionReadPages = [self.currentPage]
-                self.sessionStartDate = Date.now
-                self.sessionLastInteraction = nil
-            }
+            self.viewModel.startSession()
         }
         if #available(iOS 26.0, *) {
             addObserver(forName: UIScene.willEnterForegroundNotification) { [weak self] _ in
@@ -271,9 +263,7 @@ class ReaderViewController: BaseObservingViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        sessionReadPages = [self.currentPage]
-        sessionStartDate = Date.now
-        sessionLastInteraction = nil
+        viewModel.startSession()
 
         if navigationController?.toolbar.alpha == 0 {
             hideBars()
@@ -289,16 +279,16 @@ class ReaderViewController: BaseObservingViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
 
-        if !chaptersToRemoveDownload.isEmpty {
+        if !viewModel.chaptersToRemoveDownload.isEmpty {
             Task {
-                await DownloadManager.shared.delete(chapters: chaptersToRemoveDownload.map {
-                    .init(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: $0.key)
+                await DownloadManager.shared.delete(chapters: viewModel.chaptersToRemoveDownload.map {
+                    .init(sourceKey: viewModel.manga.sourceKey, mangaKey: viewModel.manga.key, chapterKey: $0.key)
                 })
-                chaptersToRemoveDownload = []
+                viewModel.chaptersToRemoveDownload = []
             }
         }
 
-        guard currentPage >= 1 else { return }
+        guard viewModel.currentPage >= 1 else { return }
         Task {
             await updateReadPosition()
         }
@@ -345,86 +335,20 @@ class ReaderViewController: BaseObservingViewController {
         totalPages: Int? = nil,
         chapter: AidokuRunner.Chapter? = nil
     ) async {
-        guard
-            !UserDefaults.standard.bool(forKey: "General.incognitoMode"),
-            (totalPages ?? toolbarView.totalPages ?? 0) > 0 // ensure chapter pages are loaded
-        else {
-            return
-        }
-
-        let currentPage = currentPage ?? self.currentPage
-        let chapter = chapter ?? self.chapter
-
-        let sourceId = manga.sourceKey
-        let mangaId = manga.key
-        let chapterId = chapter.key
-        let (completed, progress) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.getProgress(
-                sourceId: sourceId,
-                mangaId: mangaId,
-                chapterId: chapterId,
-                context: context
-            )
-        }
-        let hasHistory = completed || progress != nil
-
-        // don't add history if there is none and we're at the first page
-        if currentPage == 1 && !hasHistory {
-            return
-        }
-
-        await HistoryManager.shared.setProgress(
-            chapter: chapter.toOld(sourceId: sourceId, mangaId: mangaId),
-            progress: currentPage,
-            totalPages: totalPages,
-            completed: completed
-        )
-        await saveReadingSession(chapter: chapter)
-    }
-
-    private func saveReadingSession(chapter: AidokuRunner.Chapter? = nil) async {
-        guard let sessionStartDate else { return }
-        let pagesRead = sessionReadPages.count
-        if pagesRead > 0 && sessionLastInteraction != nil {
-            let chapter = chapter ?? self.chapter
-            await HistoryManager.shared.addSession(
-                chapterIdentifier: .init(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: chapter.key),
-                data: .init(startDate: sessionStartDate, endDate: .now, pagesRead: pagesRead)
-            )
-        }
-        self.sessionStartDate = nil
+        await viewModel.updateReadPosition(currentPage: currentPage, totalPages: totalPages ?? toolbarView.totalPages, chapter: chapter)
     }
 
     func loadChapterList() async {
-        let updatedManga = try? await source?.getMangaUpdate(
-            manga: manga,
-            needsDetails: false,
-            needsChapters: true
-        )
-        chapterList = updatedManga?.chapters ?? []
+        await viewModel.loadChapterList()
     }
 
     func loadCurrentChapter() {
-        if chapterList.isEmpty {
-            Task {
-                await loadChapterList()
-            }
-        }
-
-        let (completed, startPage) = CoreDataManager.shared.getProgress(
-            sourceId: source?.key ?? manga.sourceKey,
-            mangaId: manga.key,
-            chapterId: chapter.key
-        )
-        if !completed, let startPage {
-            currentPage = startPage
-        } else {
-            currentPage = -1
-        }
-        reader?.setChapter(chapter, startPage: currentPage)
+        let page = viewModel.loadCurrentChapter()
+        reader?.setChapter(viewModel.chapter, startPage: page)
     }
 
     func loadNavbarTitle() {
+        let chapter = viewModel.chapter
         let volume: String? =
             if chapter.chapterNumber != nil, let volumeNum = chapter.volumeNumber {
                 String(format: NSLocalizedString("VOLUME_X", comment: ""), volumeNum)
@@ -456,24 +380,24 @@ class ReaderViewController: BaseObservingViewController {
 
     @objc func openReaderSettings() {
         let vc = UIHostingController(
-            rootView: ReaderSettingsView(mangaId: manga.key)
+            rootView: ReaderSettingsView(mangaId: viewModel.manga.key)
         )
         present(vc, animated: true)
     }
 
     @objc func openWebView() {
-        guard let url = chapter.url, url.scheme == "http" || url.scheme == "https" else { return }
+        guard let url = viewModel.chapter.url, url.scheme == "http" || url.scheme == "https" else { return }
         present(SFSafariViewController(url: url), animated: true)
     }
 
     @objc func openChapterList() {
         var view = ReaderChapterListView(
-            chapterList: chapterList,
-            chapter: chapter
+            chapterList: viewModel.chapterList,
+            chapter: viewModel.chapter
         )
         view.chapterSet = { [weak self] chapter in
             guard let self else { return }
-            if chapter != self.chapter {
+            if chapter != self.viewModel.chapter {
                 self.setChapter(chapter)
                 self.loadCurrentChapter()
             }
@@ -497,43 +421,8 @@ class ReaderViewController: BaseObservingViewController {
 // MARK: - Reading Mode
 extension ReaderViewController {
     func setReadingMode(_ mode: String?) {
-        switch mode {
-            case "rtl": readingMode = .rtl
-            case "ltr": readingMode = .ltr
-            case "vertical": readingMode = .vertical
-            case "scroll", "webtoon": readingMode = .webtoon
-            case "continuous": readingMode = .continuous
-            case "default":
-                let defaultMode = UserDefaults.standard.string(forKey: "Reader.readingMode")
-                if defaultMode == "default" {
-                    setReadingMode("auto")
-                } else {
-                    setReadingMode(defaultMode)
-                }
-                return
-            default: // auto
-                // use given default reading mode
-                if let defaultReadingMode {
-                    readingMode = defaultReadingMode
-                } else if CoreDataManager.shared.hasManga(
-                    sourceId: source?.key ?? manga.sourceKey,
-                    mangaId: manga.key
-                ) {
-                    // fall back to stored manga viewer
-                    let sourceMode = CoreDataManager.shared.getMangaSourceReadingMode(
-                        sourceId: source?.key ?? manga.sourceKey,
-                        mangaId: manga.key
-                    )
-                    if let mode = ReadingMode(rawValue: sourceMode) {
-                        readingMode = mode
-                    } else {
-                        readingMode = .rtl
-                    }
-                } else {
-                    // fall back to rtl reading mode
-                    readingMode = .rtl
-                }
-        }
+        viewModel.setReadingMode(mode)
+        readingMode = viewModel.readingMode
 
         if !(reader is ReaderTextViewController) {
             switch readingMode {
@@ -555,21 +444,21 @@ extension ReaderViewController {
                     toolbarView.sliderView.direction = .forward
                 }
                 if !(reader is ReaderPagedViewController) {
-                    pageController = ReaderPagedViewController(source: source, manga: manga)
+                    pageController = ReaderPagedViewController(source: viewModel.source, manga: viewModel.manga)
                 } else {
                     pageController = nil
                 }
             case .scroll:
                 toolbarView.sliderView.direction = .forward
                 if !(reader is ReaderWebtoonViewController) {
-                    pageController = ReaderWebtoonViewController(source: source, manga: manga)
+                    pageController = ReaderWebtoonViewController(source: viewModel.source, manga: viewModel.manga)
                 } else {
                     pageController = nil
                 }
             case .text:
                 toolbarView.sliderView.direction = .forward
                 if !(reader is ReaderTextViewController) {
-                    pageController = ReaderTextViewController(source: source, manga: manga)
+                    pageController = ReaderTextViewController(source: viewModel.source, manga: viewModel.manga)
                 } else {
                     pageController = nil
                 }
@@ -589,125 +478,17 @@ extension ReaderViewController {
 extension ReaderViewController: ReaderHoldingDelegate {
     var barsHidden: Bool { statusBarHidden }
 
-    private func areDuplicates(_ a: AidokuRunner.Chapter, _ b: AidokuRunner.Chapter) -> Bool {
-        a.chapterNumber == b.chapterNumber
-            && a.volumeNumber == b.volumeNumber
-            && (!(a.chapterNumber == nil && a.volumeNumber == nil) || a.title == b.title)
-    }
-
-    private func isValidScanlatorMatch(for next: AidokuRunner.Chapter, current: Set<String>) -> Bool {
-        let nextScanlators = Set(next.scanlators ?? [])
-        return current.isEmpty ? nextScanlators.isEmpty : !current.isDisjoint(with: nextScanlators)
-    }
-
-    private func findBestChapterMatch(from index: Int, step: Int) -> AidokuRunner.Chapter {
-        let firstCandidate = chapterList[index]
-        let currentScanlators = Set(chapter.scanlators ?? [])
-
-        var i = index
-        while i >= 0 && i < chapterList.count {
-            let next = chapterList[i]
-            guard areDuplicates(next, firstCandidate) else { break }
-
-            let identifier = ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: next.key)
-            let isReadable = !next.locked || DownloadManager.shared.getDownloadStatus(for: identifier) == .finished
-
-            if isReadable && isValidScanlatorMatch(for: next, current: currentScanlators) {
-                return next
-            }
-            i += step
-        }
-
-        return firstCandidate
-    }
-
     func getNextChapter() -> AidokuRunner.Chapter? {
-        guard
-            var index = chapterList.firstIndex(of: chapter)
-        else {
-            return nil
-        }
-
-        let skipDuplicates = UserDefaults.standard.bool(forKey: "Reader.skipDuplicateChapters")
-        let markDuplicates = UserDefaults.standard.bool(forKey: "Reader.markDuplicateChapters")
-
-        index -= 1
-        var nextChapterInList: AidokuRunner.Chapter?
-
-        while index >= 0 {
-            let new = chapterList[index]
-            let identifier = ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: new.key)
-
-            let readable = !new.locked
-                || DownloadManager.shared.getDownloadStatus(for: identifier) == .finished
-
-            if readable {
-                let isDuplicate = areDuplicates(new, chapter)
-
-                if nextChapterInList == nil {
-                    nextChapterInList = new
-                }
-                if markDuplicates && isDuplicate {
-                    chaptersToMark.append(new)
-                }
-                if !isDuplicate {
-                    return skipDuplicates ? findBestChapterMatch(from: index, step: -1) : nextChapterInList
-                } else if !skipDuplicates && !markDuplicates {
-                    return new
-                }
-            }
-            index -= 1
-        }
-        return nil
+        viewModel.getNextChapter()
     }
 
     func getPreviousChapter() -> AidokuRunner.Chapter? {
-        guard
-            var index = chapterList.firstIndex(of: chapter)
-        else {
-            return nil
-        }
-        // find previous non-duplicate chapter
-        let markDuplicates = UserDefaults.standard.bool(forKey: "Reader.markDuplicateChapters")
-
-        index += 1
-        while index < chapterList.count {
-            let new = chapterList[index]
-            let identifier = ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: new.key)
-
-            let readable = !new.locked
-                || DownloadManager.shared.getDownloadStatus(for: identifier) == .finished
-
-            if readable {
-                let isDuplicate = areDuplicates(new, chapter)
-                if !isDuplicate {
-                    return findBestChapterMatch(from: index, step: 1)
-                }
-                if markDuplicates {
-                    chaptersToMark.append(new)
-                }
-            }
-            index += 1
-        }
-        return nil
+        viewModel.getPreviousChapter()
     }
 
     func setChapter(_ chapter: AidokuRunner.Chapter) {
-        guard chapter != self.chapter else { return }
-
-        // store current history data since it will change when new chapter loads
-        let currentPage = currentPage
-        let totalPages = toolbarView.totalPages
-        let oldChapter = self.chapter
-        Task {
-            await updateReadPosition(currentPage: currentPage, totalPages: totalPages, chapter: oldChapter)
-            sessionReadPages = [self.currentPage]
-            sessionStartDate = Date.now
-            sessionLastInteraction = nil
-        }
-
-        self.chapter = chapter
-        self.chaptersToMark = [chapter]
+        let totalPages = toolbarView.totalPages ?? 0
+        viewModel.setChapter(chapter, totalPages: totalPages)
         loadNavbarTitle()
     }
 
@@ -720,14 +501,12 @@ extension ReaderViewController: ReaderHoldingDelegate {
 
         updateDescriptionButton(pages: pages)
 
-        sessionLastInteraction = Date.now
         for page in pages {
-            guard page >= 1 && page <= totalPages else { continue }
-            sessionReadPages.insert(page)
+            viewModel.recordPageRead(page, totalPages: totalPages)
         }
 
         let page = max(1, min(pages.lowerBound, totalPages))
-        currentPage = page
+        viewModel.currentPage = page
         toolbarView.currentPage = page
         toolbarView.updateSliderPosition()
         if pages.upperBound >= totalPages {
@@ -739,7 +518,7 @@ extension ReaderViewController: ReaderHoldingDelegate {
         let pageItems = pages.compactMap { self.pages[safe: $0 - 1]?.toNew() }
         if pageItems.contains(where: { $0.hasDescription }) {
             descriptionButtonController.rootView = ReaderPageDescriptionButtonView(
-                source: source,
+                source: viewModel.source,
                 pages: pageItems
             )
             descriptionButtonController.view.isHidden = false
@@ -757,6 +536,7 @@ extension ReaderViewController: ReaderHoldingDelegate {
 
     func setPages(_ pages: [Page]) {
         self.pages = pages
+        viewModel.pages = pages
         toolbarView.totalPages = pages.count
         activityIndicator.stopAnimating()
         if pages.isEmpty {
@@ -766,7 +546,7 @@ extension ReaderViewController: ReaderHoldingDelegate {
             // single text page, should switch to text reader
             if !(reader is ReaderTextViewController) {
                 setReader(.text)
-                setChapter(chapter)
+                setChapter(viewModel.chapter)
                 loadCurrentChapter()
             }
         } else {
@@ -778,7 +558,7 @@ extension ReaderViewController: ReaderHoldingDelegate {
                     case .webtoon, .continuous:
                         setReader(.scroll)
                 }
-                setChapter(chapter)
+                setChapter(viewModel.chapter)
                 loadCurrentChapter()
             }
         }
@@ -793,18 +573,7 @@ extension ReaderViewController: ReaderHoldingDelegate {
     }
 
     func setCompleted() {
-        if !UserDefaults.standard.bool(forKey: "General.incognitoMode") {
-            Task {
-                await HistoryManager.shared.addHistory(
-                    sourceId: manga.sourceKey,
-                    mangaId: manga.key,
-                    chapters: chaptersToMark
-                )
-            }
-        }
-        if UserDefaults.standard.bool(forKey: "Library.deleteDownloadAfterReading") {
-            chaptersToRemoveDownload.append(chapter)
-        }
+        viewModel.setCompleted()
     }
 }
 

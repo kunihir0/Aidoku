@@ -106,7 +106,7 @@ private struct _SwiftUIReaderNavigationController: UIViewControllerRepresentable
         guard let reader = context.coordinator.reader else { return }
 
         // make a fresh reader instance if needed
-        if reader.manga.key != manga.key || reader.manga.sourceKey != manga.sourceKey {
+        if reader.viewModel.manga.key != manga.key || reader.viewModel.manga.sourceKey != manga.sourceKey {
             let newReader = ReaderViewController(
                 source: source,
                 manga: manga,
@@ -116,7 +116,7 @@ private struct _SwiftUIReaderNavigationController: UIViewControllerRepresentable
             uiViewController.setViewControllers([newReader], animated: false)
         } else {
             // Otherwise, update the existing reader instance
-            if reader.chapter != chapter {
+            if reader.viewModel.chapter != chapter {
                 reader.setChapter(chapter)
                 reader.loadCurrentChapter()
             }

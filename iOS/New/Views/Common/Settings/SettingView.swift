@@ -7,7 +7,6 @@
 
 import AidokuRunner
 import AuthenticationServices
-import CommonCrypto
 import LocalAuthentication
 import SafariServices
 import SwiftUI
@@ -32,30 +31,16 @@ struct SettingView: View {
     @State private var toggleValue: Bool
 
     @State private var valueChangeTask: Task<Void, Never>?
-    @State private var showLoginAlert = false
-    @State private var showLogoutAlert = false
-    @State private var showLoginFailAlert = false
-    @State private var showLoginWebConfirm = false
-    @State private var showLoginWebView = false
     @State private var showButtonConfirm = false
     @State private var showSafari = false
-    @State private var loginCookies: [String: String] = [:]
-    @State private var loginLocalStorage: [String: String] = [:]
-    @State private var username = ""
-    @State private var password = ""
     @State private var skippedFirst = false
-    @State private var loginLoading = false
-    @State private var loginReload = false
-    @State private var session: ASWebAuthenticationSession?
     @State private var pageIsActive = false
 
     @StateObject private var userDefaultsObserver: UserDefaultsObserver // causes view to refresh when setting changes (e.g. when resetting)
     @StateObject private var requiresObserver: UserDefaultsObserver
+    @StateObject private var loginViewModel: LoginViewModel
 
     @FocusState private var fieldFocused: Bool
-
-    // empty view controller to support login view presentation
-    private static var loginShimController = LoginShimViewController()
 
     init(
         source: AidokuRunner.Source? = nil,
@@ -88,6 +73,7 @@ struct SettingView: View {
         }
 
         _userDefaultsObserver = StateObject(wrappedValue: UserDefaultsObserver(key: key(setting.key)))
+        _loginViewModel = StateObject(wrappedValue: LoginViewModel(source: source, setting: setting, namespace: namespace))
 
         var keys: [String] = []
         if let requires = setting.requires {
@@ -702,35 +688,29 @@ extension SettingView {
 
 // MARK: Login View
 extension SettingView {
-    static let usernameKeySuffix = ".username"
-    static let passwordKeySuffix = ".password"
-    static let cookieKeysKeySuffix = ".keys"
-    static let cookieValuesKeySuffix = ".values"
-    static let localStoragePrefix = ".ls."
-
     @ViewBuilder
     func loginView(value: LoginSetting) -> some View {
         let key = key(setting.key)
         let loggedIn = !(SettingsStore.shared.get(key: key) as String).isEmpty
         Button {
             guard !loggedIn else {
-                showLogoutAlert = true
+                loginViewModel.showLogoutAlert = true
                 return
             }
             switch value.method {
                 case .basic:
                     if #available(iOS 16.0, *) {
-                        showLoginAlert = true
+                        loginViewModel.showLoginAlert = true
                     } else {
                         showLoginAlertView(value: value)
                     }
                 case .oauth:
-                    handleOAuthLogin(value: value)
+                    loginViewModel.handleOAuthLogin(value: value)
                 case .web:
-                    showLoginWebConfirm = true
+                    loginViewModel.showLoginWebConfirm = true
             }
         } label: {
-            if loginLoading {
+            if loginViewModel.loginLoading {
                 ProgressView()
                     .progressViewStyle(.circular)
                     .frame(width: 20, height: 20)
@@ -740,77 +720,59 @@ extension SettingView {
             }
         }
         .disabled(disabled)
-        .alert(setting.title, isPresented: $showLoginAlert) {
-            // todo: if useEmail is true, we could verify that the email entered is valid before enabling the log in button
+        .alert(setting.title, isPresented: $loginViewModel.showLoginAlert) {
             let useEmail = value.useEmail ?? false
-            TextField(useEmail ? NSLocalizedString("EMAIL") : NSLocalizedString("USERNAME"), text: $username)
+            TextField(useEmail ? NSLocalizedString("EMAIL") : NSLocalizedString("USERNAME"), text: $loginViewModel.username)
                 .textInputAutocapitalization(.never)
                 .textContentType(useEmail ? .emailAddress : .username)
                 .keyboardType(useEmail ? .emailAddress : .default)
                 .autocorrectionDisabled()
                 .submitLabel(.next)
-            SecureField(NSLocalizedString("PASSWORD"), text: $password)
+            SecureField(NSLocalizedString("PASSWORD"), text: $loginViewModel.password)
                 .textContentType(.password)
                 .submitLabel(.done)
 
             Button(NSLocalizedString("CANCEL"), role: .cancel) {
-                username = SettingsStore.shared.get(key: key + Self.usernameKeySuffix)
-                password = SettingsStore.shared.get(key: key + Self.passwordKeySuffix)
+                loginViewModel.loadCredentials()
             }
             let is16 = UIDevice.current.systemVersion.hasPrefix("16.")
             Button(NSLocalizedString("LOGIN")) {
-                handleBasicLogin(username: username, password: password)
+                loginViewModel.handleBasicLogin(username: loginViewModel.username, password: loginViewModel.password)
             }
-            // the disabled modifier just hides the button on iOS 15/16, so don't use it if we're on those versions
-            .disabled(!is16 && (username.isEmpty || password.isEmpty))
+            .disabled(!is16 && (loginViewModel.username.isEmpty || loginViewModel.password.isEmpty))
         } message: {
             Text(NSLocalizedString("LOGIN_BASIC_TEXT"))
         }
-        .alert(NSLocalizedString("LOGIN_WEBVIEW_WARNING"), isPresented: $showLoginWebConfirm) {
+        .alert(NSLocalizedString("LOGIN_WEBVIEW_WARNING"), isPresented: $loginViewModel.showLoginWebConfirm) {
             Button(NSLocalizedString("CANCEL"), role: .cancel) {}
             Button(NSLocalizedString("LOGIN")) {
-                showLoginWebView = true
+                loginViewModel.showLoginWebView = true
             }
         } message: {
             Text(NSLocalizedString("LOGIN_WEBVIEW_WARNING_TEXT"))
         }
-        .alert(NSLocalizedString("LOGOUT"), isPresented: $showLogoutAlert) {
+        .alert(NSLocalizedString("LOGOUT"), isPresented: $loginViewModel.showLogoutAlert) {
             Button(NSLocalizedString("CANCEL"), role: .cancel) {}
             Button(NSLocalizedString("OK")) {
-                SettingsStore.shared.remove(key: key + Self.usernameKeySuffix)
-                SettingsStore.shared.remove(key: key + Self.passwordKeySuffix)
-                SettingsStore.shared.remove(key: key + Self.cookieKeysKeySuffix)
-                SettingsStore.shared.remove(key: key + Self.cookieValuesKeySuffix)
-                // remove local storage
-                if let localStorageKeys = value.localStorageKeys {
-                    for lsKey in localStorageKeys {
-                        SettingsStore.shared.remove(key: key + Self.localStoragePrefix + lsKey)
-                    }
-                }
-                SettingsStore.shared.remove(key: key)
-                username = ""
-                password = ""
+                loginViewModel.logout(value: value)
             }
         } message: {
             Text(NSLocalizedString("LOGOUT_CONFIRM"))
         }
-        .alert(NSLocalizedString("LOGIN_FAILED"), isPresented: $showLoginFailAlert) {
+        .alert(NSLocalizedString("LOGIN_FAILED"), isPresented: $loginViewModel.showLoginFailAlert) {
             Button(NSLocalizedString("OK"), role: .cancel) {}
         } message: {
-            // todo: we can show message from source if they return an error message
             Text(NSLocalizedString("LOGIN_FAILED_TEXT"))
         }
-        .sheet(isPresented: $showLoginWebView) {
+        .sheet(isPresented: $loginViewModel.showLoginWebView) {
             loginWebSheetView(value: value)
                 .interactiveDismissDisabled()
         }
         .onAppear {
-            username = SettingsStore.shared.get(key: key + Self.usernameKeySuffix)
-            password = SettingsStore.shared.get(key: key + Self.passwordKeySuffix)
+            loginViewModel.loadCredentials()
         }
     }
 
-    // use uikit alert for ios 15, since it doesn't support text fields in alerts
     private func showLoginAlertView(value: LoginSetting) {
         guard let delegate = UIApplication.shared.delegate as? AppDelegate else {
             return
@@ -827,7 +789,7 @@ extension SettingView {
                         let username = usernameTextField?.text,
                         let password = passwordTextField?.text
                     else { return }
-                    handleBasicLogin(username: username, password: password)
+                    loginViewModel.handleBasicLogin(username: username, password: password)
                 }
             ],
             textFieldHandlers: [
@@ -852,41 +814,6 @@ extension SettingView {
         )
     }
 
-    private func handleBasicLogin(username: String, password: String) {
-        guard !(username.isEmpty || password.isEmpty) else {
-            return
-        }
-        let key = key(setting.key)
-        @MainActor
-        func commit() {
-            SettingsStore.shared.set(key: key + Self.usernameKeySuffix, value: username)
-            SettingsStore.shared.set(key: key + Self.passwordKeySuffix, value: password)
-            SettingsStore.shared.set(key: key, value: "logged_in") // set key to indicate logged in
-        }
-        if let source, source.features.handlesBasicLogin {
-            loginLoading = true
-            Task {
-                do {
-                    let success = try await source.handleBasicLogin(key: setting.key, username: username, password: password)
-                    if success {
-                        commit()
-                    } else {
-                        showLoginFailAlert = true
-                    }
-                } catch {
-                    LogManager.logger.error("Error handling basic login for \(source.key): \(error)")
-                    showLoginFailAlert = true
-                }
-                loginLoading = false
-
-                self.username = SettingsStore.shared.get(key: key + Self.usernameKeySuffix)
-                self.password = SettingsStore.shared.get(key: key + Self.passwordKeySuffix)
-            }
-        } else {
-            commit()
-        }
-    }
-
     private func loginWebSheetView(value: LoginSetting) -> some View {
         PlatformNavigationStack {
             Group {
@@ -894,9 +821,9 @@ extension SettingView {
                     WebView(
                         url,
                         localStorageKeys: value.localStorageKeys ?? [],
-                        cookies: $loginCookies,
-                        localStorage: $loginLocalStorage,
-                        reloadToggle: $loginReload
+                        cookies: $loginViewModel.loginCookies,
+                        localStorage: $loginViewModel.loginLocalStorage,
+                        reloadToggle: $loginViewModel.loginReload
                     )
                     .edgesIgnoringSafeArea(.bottom)
                 }
@@ -904,12 +831,12 @@ extension SettingView {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     CloseButton {
-                        showLoginWebView = false
+                        loginViewModel.showLoginWebView = false
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        loginReload = true
+                        loginViewModel.loginReload = true
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
@@ -917,207 +844,25 @@ extension SettingView {
             }
             .navigationTitle(setting.title)
             .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: loginCookies) { newValue in
-                let key = key(setting.key)
-                let keys = Array(newValue.keys)
-                let values = keys.map { newValue[$0]! }
-                SettingsStore.shared.set(key: key + Self.cookieKeysKeySuffix, value: keys)
-                SettingsStore.shared.set(key: key + Self.cookieValuesKeySuffix, value: values)
-
-                func commit() {
-                    if newValue.isEmpty {
-                        SettingsStore.shared.remove(key: key)
-                    } else {
-                        SettingsStore.shared.set(key: key, value: "logged_in") // set key to indicate logged in
-                    }
-                }
-
+            .onChange(of: loginViewModel.loginCookies) { newValue in
+                loginViewModel.commitWebLogin(cookies: newValue)
                 if let source, source.features.handlesWebLogin {
                     Task {
                         do {
                             let success = try await source.handleWebLogin(key: setting.key, cookies: newValue)
                             if success {
-                                showLoginWebView = false
-                                commit()
+                                loginViewModel.showLoginWebView = false
                             }
                         } catch {
                             LogManager.logger.error("Error handling web login for \(source.key): \(error)")
                         }
                     }
-                } else {
-                    commit()
                 }
             }
-            .onChange(of: loginLocalStorage) { newValue in
-                let key = key(setting.key)
-                for (lsKey, lsValue) in newValue {
-                    SettingsStore.shared.set(key: key + Self.localStoragePrefix + lsKey, value: lsValue)
-                }
+            .onChange(of: loginViewModel.loginLocalStorage) { newValue in
+                loginViewModel.saveLocalStorage(newValue)
             }
         }
-    }
-
-    private func generateCodeVerifier() -> String {
-        let length = 128
-        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
-        var codeVerifier = ""
-        for _ in 0..<length {
-            codeVerifier.append(characters.randomElement()!)
-        }
-        return codeVerifier
-    }
-
-    private func generateCodeChallenge(from codeVerifier: String) -> String {
-        guard let data = codeVerifier.data(using: .ascii) else { return "" }
-        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-        data.withUnsafeBytes {
-            _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash)
-        }
-        let hashData = Data(hash)
-        return hashData.base64EncodedString(options: .endLineWithLineFeed)
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-    }
-
-    private func handleOAuthLogin(value: LoginSetting) {
-        let url: URL?
-
-        if let urlString = value.url {
-            url = URL(string: urlString)
-        } else if let urlKey = value.urlKey {
-            url = URL(string: SettingsStore.shared.get(key: key(urlKey)))
-        } else {
-            url = nil
-        }
-
-        guard var url else {
-            LogManager.logger.error("Invalid login URL: \(value.url ?? "missing")")
-            return
-        }
-
-        let key = key(setting.key)
-
-        var codeVerifier: String?
-        var clientId: String?
-        var redirectUri: String?
-
-        if value.pkce ?? false {
-            guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-                LogManager.logger.error("Malformed URL: \(url)")
-                return
-            }
-            codeVerifier = generateCodeVerifier()
-            SettingsStore.shared.set(key: key + ".codeVerifier", value: codeVerifier!)
-            let codeChallenge = generateCodeChallenge(from: codeVerifier!)
-            var queryItems = urlComponents.queryItems ?? []
-            clientId = queryItems.first(where: { $0.name == "client_id" })?.value
-            redirectUri = queryItems.first(where: { $0.name == "redirect_uri" })?.value
-            queryItems.append(URLQueryItem(name: "code_challenge", value: codeChallenge))
-            queryItems.append(URLQueryItem(name: "code_challenge_method", value: "S256"))
-            queryItems.append(URLQueryItem(name: "response_type", value: "code"))
-            urlComponents.queryItems = queryItems
-
-            guard let pkceUrl = urlComponents.url else {
-                LogManager.logger.error("Unable to create PKCE URL: \(urlComponents)")
-                return
-            }
-            url = pkceUrl
-        }
-
-        session = ASWebAuthenticationSession(
-            url: url,
-            callbackURLScheme: value.callbackScheme ?? "aidoku"
-        ) { callback, error in
-            guard let callback else {
-                LogManager.logger.error("No callback URL received")
-                return
-            }
-
-            loginLoading = true
-
-            defer {
-                loginLoading = false
-            }
-
-            if value.pkce ?? false, let tokenUrlString = value.tokenUrl {
-                guard
-                    let codeVerifier,
-                    let urlComponents = URLComponents(url: callback, resolvingAgainstBaseURL: false),
-                    let code = urlComponents.queryItems?.first(where: { $0.name == "code" })?.value
-                else {
-                    LogManager.logger.error("Missing code verifier or code")
-                    return
-                }
-
-                guard let tokenUrl = URL(string: tokenUrlString) else {
-                    LogManager.logger.error("Invalid token URL: \(tokenUrlString)")
-                    return
-                }
-
-                var request = URLRequest(url: tokenUrl)
-                request.httpMethod = "POST"
-                request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
-                var parameters: [String: String] = [
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "code_verifier": codeVerifier
-                ]
-                if let redirectUri {
-                    parameters["redirect_uri"] = redirectUri
-                }
-                if let clientId {
-                    parameters["client_id"] = clientId
-                }
-
-                let bodyString = parameters.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
-                request.httpBody = bodyString.data(using: .utf8)
-
-                let task = URLSession.shared.dataTask(with: request) { data, _, error in
-                    if let error {
-                        LogManager.logger.error("Error requesting access token: \(error.localizedDescription)")
-                        return
-                    }
-
-                    guard let data else {
-                        LogManager.logger.error("No data received from access token request")
-                        return
-                    }
-
-                    let result = String(decoding: data, as: Unicode.UTF8.self)
-
-                    Task { @MainActor in
-                        SettingsStore.shared.set(key: key, value: result)
-                    }
-                }
-
-                task.resume()
-            } else {
-                if let error {
-                    LogManager.logger.error("Error during login: \(error.localizedDescription)")
-                }
-                SettingsStore.shared.set(key: key, value: callback.absoluteString)
-
-                if let notification = setting.notification {
-                    if let source {
-                        Task {
-                            do {
-                                try await source.handleNotification(notification: notification)
-                            } catch {
-                                LogManager.logger.error("Error handling setting notification for \(source.key): \(error)")
-                            }
-                        }
-                    }
-                    NotificationCenter.default.post(name: NSNotification.Name(notification), object: nil)
-                }
-            }
-        }
-
-        guard let session else { return }
-
-        session.presentationContextProvider = Self.loginShimController
-        session.start()
     }
 }
 
@@ -1172,102 +917,6 @@ extension SettingView {
                 1
             } else {
                 disabled ? disabledOpacity : 1
-            }
-        }())
-    }
-}
-
-private struct ScrollOffsetPreferenceKey: PreferenceKey {
-    typealias Value = CGFloat
-    static var defaultValue: CGFloat { .zero }
-    static func reduce(value: inout Value, nextValue: () -> Value) {
-        value += nextValue()
-    }
-}
-
-struct SettingPageDestination: View {
-    var source: AidokuRunner.Source?
-    let setting: Setting
-    var namespace: String?
-    var onChange: ((String) -> Void)?
-
-    let value: PageSetting
-    var scrollTo: Setting?
-
-    @Environment(\.settingPageContent) private var pageContentHandler
-    @Environment(\.settingCustomContent) private var customContentHandler
-
-    @State private var hidePageNavbarTitle = false
-
-    @Namespace private var scrollSpace
-
-    init(
-        source: AidokuRunner.Source? = nil,
-        setting: Setting,
-        namespace: String? = nil,
-        onChange: ((String) -> Void)? = nil,
-        value: PageSetting,
-        scrollTo: Setting? = nil
-    ) {
-        self.source = source
-        self.setting = setting
-        self.namespace = namespace
-        self.onChange = onChange
-        self.value = value
-        self.scrollTo = scrollTo
-
-        // init with hidden navbar title when header view will exist
-        self._hidePageNavbarTitle = State(initialValue: value.icon != nil && value.info != nil)
-    }
-
-    var body: some View {
-        Group {
-            if let content = pageContentHandler?(setting.key) {
-                content
-            } else {
-                ScrollViewReader { proxy in
-                    List {
-                        if let icon = value.icon, let subtitle = value.info {
-                            SettingHeaderView(
-                                source: source,
-                                icon: SettingHeaderView.Icon.from(icon),
-                                title: setting.title,
-                                subtitle: subtitle
-                            )
-                            .background(GeometryReader { geo in
-                                let offset = -geo.frame(in: .named(scrollSpace)).minY
-                                Color.clear
-                                    .preference(key: ScrollOffsetPreferenceKey.self, value: offset)
-                            })
-                        }
-                        ForEach(value.items.indices, id: \.self) { offset in
-                            let setting = value.items[offset]
-                            SettingView(source: source, setting: setting, namespace: namespace, onChange: onChange)
-                                .environment(\.settingPageContent, pageContentHandler)
-                                .environment(\.settingCustomContent, customContentHandler)
-                                .tag(setting.key.isEmpty ? UUID().uuidString : setting.key)
-                        }
-                    }
-                    .coordinateSpace(name: scrollSpace)
-                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                        hidePageNavbarTitle = value < 0
-                    }
-                    .onAppear {
-                        if let scrollTo {
-                            proxy.scrollTo(scrollTo.key, anchor: .center)
-                        }
-                    }
-                    .scrollDismissesKeyboardInteractively()
-                }
-            }
-        }
-        .navigationTitle(hidePageNavbarTitle ? "" : setting.title)
-        .navigationBarTitleDisplayMode({
-            let hasHeaderView = value.icon != nil && value.info != nil
-            if hasHeaderView || (value.inlineTitle ?? false) {
-                return .inline
-            } else {
-                return .automatic
             }
         }())
     }

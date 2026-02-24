@@ -17,6 +17,14 @@
 		04B48CFF2CD6B3B000F719D0 /* ShikimoriQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B48CFD2CD6B3AD00F719D0 /* ShikimoriQueries.swift */; };
 		0C807DDD27D47C2D0042EE7B /* CircularProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C807DDC27D47C2D0042EE7B /* CircularProgressView.swift */; };
 		37F3E66D2850F62100A944E0 /* Collection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37F3E66C2850F62100A944E0 /* Collection.swift */; };
+		3AA6148F2F4409AB0009F7AB /* ReaderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA6148E2F4409AB0009F7AB /* ReaderViewModel.swift */; };
+		3AA614912F440ADD0009F7AB /* LibraryViewController+CollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614902F440ADD0009F7AB /* LibraryViewController+CollectionView.swift */; };
+		3AA614942F440B960009F7AB /* LibraryViewController+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614932F440B960009F7AB /* LibraryViewController+Filter.swift */; };
+		3AA614952F440B960009F7AB /* LibraryViewController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614922F440B960009F7AB /* LibraryViewController+Actions.swift */; };
+		3AA614972F440E510009F7AB /* ReaderPagedViewController+Delegates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614962F440E510009F7AB /* ReaderPagedViewController+Delegates.swift */; };
+		3AA6149A2F4411AC0009F7AB /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614982F4411AC0009F7AB /* LoginViewModel.swift */; };
+		3AA6149B2F4411AC0009F7AB /* SettingView+Types.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA614992F4411AC0009F7AB /* SettingView+Types.swift */; };
+		3AA6149D2F446F030009F7AB /* MangaView+Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA6149C2F446F030009F7AB /* MangaView+Components.swift */; };
 		48177B8E2B75C40400AD41B4 /* MangaUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48177B8D2B75C40400AD41B4 /* MangaUpdatesView.swift */; };
 		48177B902B75C63700AD41B4 /* CoreDataManager+MangaUpdates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48177B8F2B75C63700AD41B4 /* CoreDataManager+MangaUpdates.swift */; };
 		48177B922B75C67300AD41B4 /* MangaUpdateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48177B912B75C67300AD41B4 /* MangaUpdateObject.swift */; };
@@ -583,6 +591,14 @@
 		04B48CFD2CD6B3AD00F719D0 /* ShikimoriQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShikimoriQueries.swift; sourceTree = "<group>"; };
 		0C807DDC27D47C2D0042EE7B /* CircularProgressView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CircularProgressView.swift; sourceTree = "<group>"; };
 		37F3E66C2850F62100A944E0 /* Collection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Collection.swift; sourceTree = "<group>"; };
+		3AA6148E2F4409AB0009F7AB /* ReaderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewModel.swift; sourceTree = "<group>"; };
+		3AA614902F440ADD0009F7AB /* LibraryViewController+CollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibraryViewController+CollectionView.swift"; sourceTree = "<group>"; };
+		3AA614922F440B960009F7AB /* LibraryViewController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibraryViewController+Actions.swift"; sourceTree = "<group>"; };
+		3AA614932F440B960009F7AB /* LibraryViewController+Filter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibraryViewController+Filter.swift"; sourceTree = "<group>"; };
+		3AA614962F440E510009F7AB /* ReaderPagedViewController+Delegates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReaderPagedViewController+Delegates.swift"; sourceTree = "<group>"; };
+		3AA614982F4411AC0009F7AB /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
+		3AA614992F4411AC0009F7AB /* SettingView+Types.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingView+Types.swift"; sourceTree = "<group>"; };
+		3AA6149C2F446F030009F7AB /* MangaView+Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MangaView+Components.swift"; sourceTree = "<group>"; };
 		48177B8D2B75C40400AD41B4 /* MangaUpdatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MangaUpdatesView.swift; sourceTree = "<group>"; };
 		48177B8F2B75C63700AD41B4 /* CoreDataManager+MangaUpdates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreDataManager+MangaUpdates.swift"; sourceTree = "<group>"; };
 		48177B912B75C67300AD41B4 /* MangaUpdateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MangaUpdateObject.swift; sourceTree = "<group>"; };
@@ -1137,6 +1153,9 @@
 		FB02E1F0288D7BAF00B9E2DE /* Library */ = {
 			isa = PBXGroup;
 			children = (
+				3AA614922F440B960009F7AB /* LibraryViewController+Actions.swift */,
+				3AA614932F440B960009F7AB /* LibraryViewController+Filter.swift */,
+				3AA614902F440ADD0009F7AB /* LibraryViewController+CollectionView.swift */,
 				FB02E1EA288CC1DA00B9E2DE /* LibraryViewController.swift */,
 				FBE40E2E288EDDB700CCA4DC /* LibraryViewModel.swift */,
 				FB17114229653B3E00AD523D /* AddToCategoryViewController.swift */,
@@ -1214,6 +1233,7 @@
 		FB0CAA6828A9BB900024561A /* Reader */ = {
 			isa = PBXGroup;
 			children = (
+				3AA6148E2F4409AB0009F7AB /* ReaderViewModel.swift */,
 				FB55AFAA28AABD8D0083EFC3 /* Page */,
 				FB55AFA128AAAEBD0083EFC3 /* Readers */,
 				FB0CAA6928A9BB9C0024561A /* ReaderViewController.swift */,
@@ -1598,6 +1618,7 @@
 		FB55AFAD28AAD3F50083EFC3 /* Paged */ = {
 			isa = PBXGroup;
 			children = (
+				3AA614962F440E510009F7AB /* ReaderPagedViewController+Delegates.swift */,
 				FB55AFA228AAAEDF0083EFC3 /* ReaderPagedViewController.swift */,
 				FBC1271A28AADCF200B68FFC /* ReaderPagedViewModel.swift */,
 				FB55AFAE28AAD40B0083EFC3 /* ReaderPageViewController.swift */,
@@ -1657,6 +1678,8 @@
 		FB662E912DA813E300007514 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				3AA614982F4411AC0009F7AB /* LoginViewModel.swift */,
+				3AA614992F4411AC0009F7AB /* SettingView+Types.swift */,
 				FB662E902DA813E300007514 /* SettingView.swift */,
 				FBFF58922E7F2BEF009367B7 /* SettingView+Environment.swift */,
 				FB619E502E9E90EB00E3B565 /* SettingHeaderView.swift */,
@@ -1702,6 +1725,7 @@
 		FB662E9C2DA813E300007514 /* Manga */ = {
 			isa = PBXGroup;
 			children = (
+				3AA6149C2F446F030009F7AB /* MangaView+Components.swift */,
 				FBAED4042E3972BC00B81E74 /* Tracking */,
 				FB17005C2E39313700DBC4E4 /* MangaViewController.swift */,
 				FB662EE72DA81A5C00007514 /* MangaView.swift */,
@@ -2488,6 +2512,7 @@
 				FB662F0E2DA81B8200007514 /* AidokuRunner.swift in Sources */,
 				FB662F102DA81B8200007514 /* EdgeInsets.swift in Sources */,
 				FB662F112DA81B8200007514 /* ListButtonStyle.swift in Sources */,
+				3AA6149D2F446F030009F7AB /* MangaView+Components.swift in Sources */,
 				FBF059B72EF7013600907B0E /* InsightsData.swift in Sources */,
 				FB1DD89B2EF0C7710007FC78 /* IncognitoBannerView.swift in Sources */,
 				FB662F152DA81B8200007514 /* UIApplication.swift in Sources */,
@@ -2590,6 +2615,7 @@
 				FB7C288A2E8310AD009FF6AF /* MoreIcon.swift in Sources */,
 				FB90F6CC2899867D000C37E6 /* CoreDataManager.swift in Sources */,
 				FB72501327CAAC9F0037F1C9 /* Backup.swift in Sources */,
+				3AA614972F440E510009F7AB /* ReaderPagedViewController+Delegates.swift in Sources */,
 				FBE40E2F288EDDB700CCA4DC /* LibraryViewModel.swift in Sources */,
 				FB9A483E2967E48300FFC414 /* MigrationStrategy.swift in Sources */,
 				FB077DAE2E7DC85A00C9C214 /* BackupsView.swift in Sources */,
@@ -2633,6 +2659,7 @@
 				FB0E1CCA288AE50700B67BA9 /* OAuthTracker.swift in Sources */,
 				FB82A5C62DF874D500366BC8 /* LocalFileDataManager.swift in Sources */,
 				FB7B7ED4278CE692001E6EAF /* Source.swift in Sources */,
+				3AA614912F440ADD0009F7AB /* LibraryViewController+CollectionView.swift in Sources */,
 				FBE578F728983C3C00F9F1B5 /* OldMangaCollectionViewController.swift in Sources */,
 				FBE578FD289951F700F9F1B5 /* BaseObservingViewController.swift in Sources */,
 				FBE3E4922DD163DD00EF8145 /* BetterBorderedButtonStyle.swift in Sources */,
@@ -2673,6 +2700,7 @@
 				FB72502827CC06AA0037F1C9 /* SegmentTableViewCell.swift in Sources */,
 				FB3DDA0C2ECE60A30081232F /* SourceErrorView.swift in Sources */,
 				FB2BE5E329527A6E00FAD8A7 /* ReaderInfoPageView.swift in Sources */,
+				3AA6148F2F4409AB0009F7AB /* ReaderViewModel.swift in Sources */,
 				723D3AFD2E0DC5C4003ED4CF /* DownloadsView.swift in Sources */,
 				723D3AFE2E0DC5C4003ED4CF /* DownloadedMangaView.swift in Sources */,
 				FB67EE6327F3D2E300C468EA /* WasmAidoku.swift in Sources */,
@@ -2752,10 +2780,14 @@
 				FB662ECF2DA813E300007514 /* HomeListView.swift in Sources */,
 				FB662ED02DA813E300007514 /* SourceSettingsView.swift in Sources */,
 				FBE7A5892DE0D64500CA5B60 /* AddSourceView.swift in Sources */,
+				3AA6149A2F4411AC0009F7AB /* LoginViewModel.swift in Sources */,
+				3AA6149B2F4411AC0009F7AB /* SettingView+Types.swift in Sources */,
 				FB662ED12DA813E300007514 /* HomeFiltersView.swift in Sources */,
 				FB662ED22DA813E300007514 /* SearchFilterHeaderView.swift in Sources */,
 				FB662ED32DA813E300007514 /* ExpandableTextView.swift in Sources */,
 				FB662ED42DA813E300007514 /* HomeBigScrollerView.swift in Sources */,
+				3AA614942F440B960009F7AB /* LibraryViewController+Filter.swift in Sources */,
+				3AA614952F440B960009F7AB /* LibraryViewController+Actions.swift in Sources */,
 				FB1A4E682E79B1A6006F4BA8 /* KomgaApi.swift in Sources */,
 				FBAED40E2E3AE5C500B81E74 /* OnReportScrollVisibilityChange.swift in Sources */,
 				FB662ED52DA813E300007514 /* ErrorView.swift in Sources */,
