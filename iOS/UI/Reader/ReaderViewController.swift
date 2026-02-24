@@ -478,6 +478,38 @@ extension ReaderViewController {
 extension ReaderViewController: ReaderHoldingDelegate {
     var barsHidden: Bool { statusBarHidden }
 
+    private func areDuplicates(_ a: AidokuRunner.Chapter, _ b: AidokuRunner.Chapter) -> Bool {
+        a.chapterNumber == b.chapterNumber
+            && a.volumeNumber == b.volumeNumber
+            && (!(a.chapterNumber == nil && a.volumeNumber == nil) || a.title == b.title)
+    }
+
+    private func isValidScanlatorMatch(for next: AidokuRunner.Chapter, current: Set<String>) -> Bool {
+        let nextScanlators = Set(next.scanlators ?? [])
+        return current.isEmpty ? nextScanlators.isEmpty : !current.isDisjoint(with: nextScanlators)
+    }
+
+    private func findBestChapterMatch(from index: Int, step: Int) -> AidokuRunner.Chapter {
+        let firstCandidate = chapterList[index]
+        let currentScanlators = Set(chapter.scanlators ?? [])
+
+        var i = index
+        while i >= 0 && i < chapterList.count {
+            let next = chapterList[i]
+            guard areDuplicates(next, firstCandidate) else { break }
+
+            let identifier = ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: next.key)
+            let isReadable = !next.locked || DownloadManager.shared.getDownloadStatus(for: identifier) == .finished
+
+            if isReadable && isValidScanlatorMatch(for: next, current: currentScanlators) {
+                return next
+            }
+            i += step
+        }
+
+        return firstCandidate
+    }
+
     func getNextChapter() -> AidokuRunner.Chapter? {
         viewModel.getNextChapter()
     }

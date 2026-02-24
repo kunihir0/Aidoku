@@ -189,14 +189,7 @@ extension MangaView {
                 .sink { [weak self] output in
                     guard let self, let item = output.object as? TrackItem else { return }
                     Task {
-                        if let tracker = TrackerManager.getTracker(id: item.trackerId) {
-                            await TrackerManager.shared.syncProgressFromTracker(
-                                tracker: tracker,
-                                trackId: item.id,
-                                manga: self.manga,
-                                chapters: self.chapters
-                            )
-                        }
+                        await self.checkTrackerSync(item: item)
                     }
                 }
                 .store(in: &cancellables)
@@ -465,21 +458,23 @@ extension MangaView.ViewModel {
                             mangaId: mangaKey,
                             context: context
                         )
-                        // add manga updates
-                        for chapter in newChapters
-                        where
+                        if !newChapters.isEmpty {
+                            // add manga updates
+                            for chapter in newChapters
+                            where
                             chapterLangFilter != nil ? chapter.lang == chapterLangFilter : true
                             && !chapterScanlatorFilter.isEmpty ? chapterScanlatorFilter.contains(chapter.scanlator ?? "") : true
-                        {
-                            CoreDataManager.shared.createMangaUpdate(
-                                sourceId: sourceKey,
-                                mangaId: mangaKey,
-                                chapterObject: chapter,
-                                context: context
-                            )
+                            {
+                                CoreDataManager.shared.createMangaUpdate(
+                                    sourceId: sourceKey,
+                                    mangaId: mangaKey,
+                                    chapterObject: chapter,
+                                    context: context
+                                )
+                            }
+                            libraryObject.lastChapter = chapters.compactMap { $0.dateUploaded }.max()
+                            libraryObject.lastUpdatedChapters = Date.now
                         }
-                        libraryObject.lastChapter = chapters.compactMap { $0.dateUploaded }.max()
-                        libraryObject.lastUpdatedChapters = Date.now
                     }
 
                     let now = Date.now
@@ -508,6 +503,9 @@ extension MangaView.ViewModel {
 
             // ensure downloaded chapters are in the correct section if they were added/removed from the main list
             await fetchDownloadedChapters()
+
+            // sync history with tracker
+            await syncTrackerProgress()
         } catch {
             withAnimation {
                 self.manga.chapters = []
@@ -548,6 +546,50 @@ extension MangaView.ViewModel {
             sourceId: manga.sourceKey,
             mangaId: manga.key
         )
+    }
+
+    private func checkTrackerSync(item: TrackItem) async {
+        guard let tracker = TrackerManager.getTracker(id: item.trackerId) else { return }
+
+        if tracker is PageTracker {
+            await TrackerManager.shared.syncPageTrackerHistory(
+                tracker: tracker,
+                manga: self.manga,
+                chapters: self.chapters
+            )
+            return
+        }
+
+        let chaptersToMark = await TrackerManager.shared.getChaptersToSyncProgressFromTracker(
+            tracker: tracker,
+            trackId: item.id,
+            manga: self.manga,
+            chapters: self.chapters
+        )
+
+        if !chaptersToMark.isEmpty {
+            let alert = UIAlertController(
+                title: NSLocalizedString("SYNC_WITH_TRACKER"),
+                message: String(format: NSLocalizedString("SYNC_WITH_TRACKER_INFO_%i"), chaptersToMark.count),
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CANCEL"), style: .cancel) { _ in })
+
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK"), style: .default) { [weak self] _ in
+                guard let self else { return }
+                Task {
+                    await HistoryManager.shared.addHistory(
+                        sourceId: self.manga.sourceKey,
+                        mangaId: self.manga.key,
+                        chapters: chaptersToMark,
+                        skipTracker: tracker
+                    )
+                }
+            })
+
+            (UIApplication.shared.delegate as? AppDelegate)?.visibleViewController?.present(alert, animated: true)
+        }
     }
 }
 

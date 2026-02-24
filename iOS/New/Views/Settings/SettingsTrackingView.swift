@@ -89,6 +89,17 @@ struct SettingsTrackingView: View {
                             }
                         }
                     }
+                    .contextMenu {
+                        if tracker.isLoggedIn {
+                            Button {
+                                Task {
+                                    await login(to: tracker)
+                                }
+                            } label: {
+                                Label(NSLocalizedString("REFRESH_LOGIN"), systemImage: "arrow.clockwise")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -145,6 +156,7 @@ extension SettingsTrackingView {
 
                         if tracker.isLoggedIn {
                             await tracker.oauthClient.loadTokens()
+                            trackersNeedingRelogin.remove(tracker.id)
                         }
 
                         NotificationCenter.default.post(name: .updateTrackers, object: nil)
